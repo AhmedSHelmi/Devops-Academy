@@ -1,0 +1,21 @@
+---
+- hosts: all
+
+  become: true
+
+  tasks:
+    - name: deploy prometheus docker container
+
+      docker_container:
+        image: freecloudtest/prometheus_image:latest
+
+        name: prometheus
+
+        state: started
+
+        pull: yes
+
+        recreate: yes
+
+        ports:
+          - "9090:9090"

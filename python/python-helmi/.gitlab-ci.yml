@@ -1,0 +1,143 @@
+# .gitlab-ci.yml
+
+# The names and order of the pipeline stages
+
+stages:
+  - test
+  - build_package
+  - build_image
+  - deploy_preprod
+  - deploy
+  - monitor_configure
+  - monitor_run
+
+variables:
+  TAG_LATEST: $dohe_user/flaskapp:latest
+
+  TAG_COMMIT: $dohe_user/flaskapp:$CI_COMMIT_SHORT_SHA
+
+Static_analysis:
+  image: python
+
+  stage: test
+
+  before_script:
+    - pip install Pylint
+
+    - pip install -r source_code/flask-app/requirements.txt
+
+  script:
+    - pylint source_code/flask-app/main.py
+
+build_package:
+  image: python
+
+  stage: build_package
+
+  before_script:
+    - cd source_code
+
+  script:
+    - python3 setup.py sdist bdist_wheel
+
+    - pip install build twine
+
+    - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME=gitlab-ci-token python -m twine upload --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/* --skip-existing
+
+build:
+  image: docker:latest
+
+  stage: build_image
+
+  services:
+    - docker:dind
+
+  script:
+    - docker build -t $TAG_COMMIT .
+
+    - docker build -t $TAG_LATEST .
+
+    - docker login -u=$dohe_user -p=$dohe_password
+
+    - docker push $TAG_COMMIT
+
+    - docker push $TAG_LATEST
+
+deploy_preprod:
+  image: python
+
+  stage: deploy_preprod
+
+  before_script:
+    - chmod 600 $ID_RSA
+
+    - mkdir ~/.ssh
+
+    - cp $ID_RSA ~/.ssh/id_ansible
+
+    - pip3 install ansible
+
+  script:
+    - ansible-playbook -i inventory playbook-preprod.yml
+
+deploy:
+  image: python
+
+  stage: deploy
+
+  before_script:
+    - chmod 600 $ID_RSA
+
+    - mkdir ~/.ssh
+
+    - cp $ID_RSA ~/.ssh/id_ansible
+
+    - pip3 install ansible
+
+  script:
+    - ansible-playbook -i inventory playbook.yml
+
+  when: manual
+
+monitor_configure:
+  image: docker:latest
+
+  stage: monitor_configure
+
+  services:
+    - docker:dind
+
+  before_script:
+    - cd  monitoring
+
+  script:
+    - docker build -t $doho_user/prometheus_image:latest .
+
+    - docker login -u=$doho_user -p=$doho_password
+
+    - docker push $doho_user/prometheus_image:latest
+
+  needs:
+    - deploy
+
+monitor_run:
+  image: python
+
+  stage: monitor_run
+
+  before_script:
+    - chmod 600 $ID_RSA
+
+    - mkdir ~/.ssh
+
+    - cp $ID_RSA ~/.ssh/id_ansible
+
+    - pip3 install ansible
+
+    - cd  monitoring
+
+  script:
+    - ansible-playbook -i ../inventory playbook.yml
+
+  needs:
+    - monitor_configure

@@ -1,0 +1,14 @@
+---
+- hosts: deployment_server_preprod
+  become: true
+  tasks:
+    - name: deploy my python-flask app
+
+      docker_container:
+        image: geekinside/flaskapp:latest
+        name: helmiapp
+        state: started
+        pull: yes
+        recreate: yes
+        ports:
+          - "8097:5000"

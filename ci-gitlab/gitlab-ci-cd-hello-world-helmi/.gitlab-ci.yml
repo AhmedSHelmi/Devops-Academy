@@ -1,0 +1,63 @@
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  TAG_LATEST: $dohe_user/mynginx:latest
+  TAG_COMMIT: $dohe_user/mynginx:$CI_COMMIT_SHORT_SHA
+
+build-job-example:
+  stage: build
+  script:
+    - echo "Hello"
+
+test-job-example:
+  stage: test
+  script:
+    - echo "test"
+
+deploy-job-example:
+  stage: deploy
+  image: "python"
+  script:
+    - python code.py
+    - echo $CI_COMMIT_AUTHOR
+
+nginx-build:
+  image: docker:latest
+  stage: build
+
+  artifacts:
+    paths:
+      - latest-image.tar
+
+  services:
+    - docker:dind
+
+  when: manual
+  only:
+    - main
+    - dev
+
+  script:
+    - docker login -u=$dohe_user -p=$dohe_password
+    - docker build -t $TAG_COMMIT .
+    - docker push $TAG_COMMIT
+    - docker build -t $TAG_LATEST .
+    - docker push $TAG_LATEST
+    - docker save $TAG_LATEST > latest-image.tar
+
+deploy-nginx:
+  image: alpine:latest
+
+  stage: deploy
+  when: manual
+
+  script:
+    - chmod 600 $ID_RSA
+    - apk update && apk add openssh-client
+    - ssh -i $ID_RSA -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "docker login -u=$dohe_user -p=$dohe_password"
+    - ssh -i $ID_RSA -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "docker pull $TAG_COMMIT"
+    - ssh -i $ID_RSA -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "docker container rm -f helmi-app || true"
+    - ssh -i $ID_RSA -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "docker run -d -p 8084:80 --name helmi-app $TAG_COMMIT"

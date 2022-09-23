@@ -1,0 +1,53 @@
+image: registry.gitlab.com/gitlab-org/terraform-images/stable:latest 
+
+stages: 
+
+  - initialize 
+  - plan 
+  - apply 
+
+variables: 
+
+  TF_ADDRESS: ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/statefile 
+
+cache: 
+  key: terraform-cache 
+
+  paths: 
+    - .terraform 
+
+ 
+
+prepare: 
+
+  stage: initialize 
+  script: 
+    - gitlab-terraform init -backend-config=skip_cert_verification=true 
+
+ 
+
+plan: 
+
+  stage: plan 
+  when: manual
+
+  script: 
+
+    - gitlab-terraform plan 
+
+  artifacts: 
+
+    name: plan 
+    paths: 
+      - plan.cache 
+
+ 
+
+apply: 
+  stage: apply
+  when: manual
+
+  script: 
+    - gitlab-terraform apply 
+
+ 

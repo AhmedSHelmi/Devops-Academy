@@ -1,0 +1,25 @@
+---  
+- name: install httpd
+  yum:
+    name: httpd
+    state: installed
+- name: install firewalld
+  yum:
+    name: firewalld
+    state: installed
+- name: start and enable httpd
+  systemd:
+    name: httpd
+    state: started
+    enabled: yes
+- name: permit traffic in default zone for https service
+  firewalld:
+    port: "{{ http_port }}"
+    permanent: yes
+    state: enabled
+  notify:
+    - reload service firewalld
+- name: copy index.html file to the managed host
+  copy:
+    src: "{{ html_page_src }}"
+    dest: "{{ html_page_dest }}"

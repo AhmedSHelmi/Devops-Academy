@@ -1,0 +1,30 @@
+---
+- hosts: webservers
+  become: yes
+  vars:
+    http_port: 80/tcp
+    html_page_src: index.html
+    html_page_dest: /var/www/html/index.html
+  tasks:
+  - name: install httpd
+    yum:
+      name: httpd
+      state: installed
+  - name: start and enable httpd
+    systemd:
+      name: httpd
+      state: started
+      enabled: yes
+  - name: permit traffic in default zone for https service
+    firewalld:
+      port: "{{ http_port }}"
+      permanent: yes
+      state: enabled
+  - name: reload service firewalld
+    systemd:
+      name: firewalld
+      state: reloaded
+  - name: copy index.html file to the managed host
+    copy:
+      src: "{{ html_page_src }}"
+      dest: "{{ html_page_dest }}"

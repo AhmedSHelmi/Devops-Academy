@@ -1,0 +1,16 @@
+---
+- hosts: deployment_server
+
+  become: true
+
+  tasks:
+    - name: deploy nginx docker container
+
+      docker_container:
+        image: geekinside/flaskapp:latest
+        name: helmiapp
+        state: started
+        pull: yes
+        recreate: yes
+        ports:
+          - "8085:5000"
